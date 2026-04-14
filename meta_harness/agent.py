@@ -393,7 +393,8 @@ class AgentHarness(Terminus2):
         if not tool_calls:
             feedback = (
                 "WARNINGS: Your response contained no tool calls. "
-                "Please use execute_commands to run commands."
+                "If the task is complete, call task_complete. "
+                "Otherwise, use execute_commands to run commands."
             )
             return commands, is_task_complete, feedback, analysis, plan, image_read
 
@@ -997,6 +998,8 @@ class AgentHarness(Terminus2):
         self._context.n_cache_tokens = 0
         self._context.cost_usd = None
 
+        consecutive_empty = 0
+
         for episode in range(self._max_episodes):
             self._n_episodes = episode + 1
             if not await self._with_block_timeout(self._session.is_session_alive()):
@@ -1035,6 +1038,17 @@ class AgentHarness(Terminus2):
             ) = await self._handle_llm_interaction(
                 chat, prompt, logging_paths, original_instruction, self._session
             )
+
+            # Track consecutive empty tool_calls — auto-complete after 3
+            if not commands and not is_task_complete and image_read is None:
+                consecutive_empty += 1
+                if consecutive_empty >= 3:
+                    self.logger.info(
+                        f"Forcing task_complete after {consecutive_empty} consecutive empty tool_calls"
+                    )
+                    is_task_complete = True
+            else:
+                consecutive_empty = 0
 
             # If we have pending subagent refs, add a system step
             if self._pending_subagent_refs:
