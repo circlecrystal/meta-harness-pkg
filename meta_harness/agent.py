@@ -432,6 +432,12 @@ class AgentHarness(Terminus2):
                             duration_sec=min(duration, 60),
                         )
                     )
+                if not cmds:
+                    feedback = (
+                        "WARNINGS: execute_commands was called with an empty commands list. "
+                        "If the task is complete, call task_complete. "
+                        "Otherwise, provide actual commands to run."
+                    )
             elif function_name == "task_complete":
                 # Mark task as complete
                 is_task_complete = True
